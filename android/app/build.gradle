@@ -1,0 +1,176 @@
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterRoot = localProperties.getProperty('flutter.sdk')
+if (flutterRoot == null) {
+    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
+}
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+if (flutterVersionCode == null) {
+    flutterVersionCode = '1'
+}
+
+def flutterVersionName = localProperties.getProperty('flutter.versionName')
+if (flutterVersionName == null) {
+    flutterVersionName = '1.0'
+}
+
+// 定义属性读取对象，读取 android/key.properties
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+
+// 打印配置
+println "gradle.gradleVersion: $gradle.gradleVersion"
+println "android.buildToolsVersion: $android.buildToolsVersion"
+println "flutter.compileSdkVersion: $flutter.compileSdkVersion"
+println "flutter.targetSdkVersion: $flutter.targetSdkVersion"
+println "flutter.minSdkVersion: $flutter.minSdkVersion"
+println "flutter.ndkVersion: $flutter.ndkVersion"
+
+android {
+    compileSdkVersion 33
+    // buildToolsVersion = '33.0.0'
+    // compileSdkVersion flutter.compileSdkVersion
+    ndkVersion flutter.ndkVersion
+
+    compileOptions {
+
+        /*
+        使用 coreLibraryDesugaringEnabled 选项，
+        您可以在不使用 androidx.appcompat:appcompat 库的情况下，
+        在 Android 5.0 及更高版本上使用 Java 8 语言功能。
+        该选项会在构建过程中将 Java 8 类转换为 Android 平台上可用的代码。
+        */
+        coreLibraryDesugaringEnabled true // +
+
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    //Error:(12, 24) 警告: [deprecation] android.hardware中的Camera已过时
+    lintOptions {  
+        checkReleaseBuilds false
+        abortOnError false
+     }
+    
+    applicationVariants.all { variant ->
+       variant.outputs.all {
+           def version = variant.versionName // 版本号
+           def buildType = variant.name // 包类型，debug 还是 release
+           def createTime = new Date().format('yyyy_MM_dd_HH_mm_ss') // 打包时间 2021_09_25_16_45_52
+            if (buildType == "debug") {
+               outputFileName = "d_${buildType}_${version}_${createTime}.apk"
+            }
+            if (buildType == "release") {
+               outputFileName = "d_${buildType}_${version}_${createTime}.apk"
+            }
+        }
+    }
+
+
+    defaultConfig {
+        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        applicationId "com.ducafecat.video"
+        // You can update the following values to match your application needs.
+        // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-build-configuration.
+        minSdkVersion 21 //flutter.minSdkVersion
+        targetSdkVersion flutter.targetSdkVersion
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+
+        /*
+        如果您的应用程序包含的方法数量超过 65536 个，
+        您可能会遇到 java.lang.IllegalArgumentException: method ID not in [0, 0xffff]: xxxxx 错误。
+        要解决此问题，您可以使用 multiDexEnabled 选项启用多 Dex 文件支持。
+
+        启用 multiDexEnabled 选项后，Android Gradle 插件会将应用程序的方法拆分到多个 Dex 文件中。
+        这些 Dex 文件将在运行时加载到应用程序的 Dalvik 运行时中，以便在运行时访问所有方法。
+        */
+        multiDexEnabled true // +
+
+        // 使用 FULL 在 Play 管理中心的符号化解析后的堆栈轨迹中获取函数名称、文件和行号。
+        // https://developer.android.com/studio/build/shrink-code#native-crash-support
+        ndk {
+            debugSymbolLevel 'FULL'
+        }
+    }
+
+    // 签名配置
+    signingConfigs {
+        release {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile file(keystoreProperties['storeFile'])
+            storePassword keystoreProperties['storePassword']
+        }
+        debug {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile file(keystoreProperties['storeFile'])
+            storePassword keystoreProperties['storePassword']
+        }
+    }
+
+    buildTypes {
+        release {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            // signingConfig signingConfigs.debug
+
+//            debuggable false
+//            jniDebuggable false
+//            minifyEnabled true
+//            shrinkResources false
+//            multiDexEnabled true
+//            proguardFiles getDefaultProguardFile('proguard-android.txt'), '../TMessagesProj/proguard-rules.pro'
+
+            // ProGuard规则文件
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+
+            signingConfig signingConfigs.release
+        }
+        debug {
+            signingConfig signingConfigs.debug
+        }
+    }
+}
+
+flutter {
+    source '../..'
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+
+    // coreLibraryDesugaring 是 Android Gradle 插件 4.0.0 及更高版本中的一个选项，
+    // 用于在 Android 5.0（API 级别 21）及更高版本上使用 Java 8 中的新功能，
+    // 而无需在应用程序中使用 androidx.appcompat:appcompat 库。
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5' // +
+
+    // 防止 flutter 启动闪退
+    implementation 'androidx.window:window:1.0.0' // +
+    implementation 'androidx.window:window-java:1.0.0' // +
+}
+
+android.buildTypes.release.ndk.debugSymbolLevel = 'FULL'

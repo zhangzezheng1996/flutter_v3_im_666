@@ -1,0 +1,1 @@
+static const myDy = '/my_dy';
